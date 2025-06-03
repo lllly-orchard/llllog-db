@@ -1,0 +1,18 @@
+name: Check PR Commit
+run-name: ${{ github.actor }} is verifying their pushed code
+on: [pull_request]
+jobs:
+  Check-And-Test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out PR code
+        uses: actions/checkout@v4
+
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Run 'cargo check'
+        run: cargo check
+
+      - name: Run unit tests
+        run: cargo test
+
