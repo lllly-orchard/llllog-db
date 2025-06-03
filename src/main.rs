@@ -2,11 +2,12 @@ use llllog_db::kv_db::Database;
 use std::path::Path;
 
 fn main() {
-    let my_db = Database::new(Path::new("db_file.csv"));
+    let mut my_db = Database::build(Path::new("db_file.csv"));
+    // let my_db = Database::build(Path::new("db_file.csv"));
 
-    my_db.set("key1", "val1.1");
-    my_db.set("key2", "val2.1");
-    my_db.set("key3", "");
+    my_db.set("key1", "val1.4");
+    // my_db.set("key2", "val2.3");
+    my_db.set("key3", "val3.0");
 
     get_and_print(&my_db, "key1");
     get_and_print(&my_db, "key2");
@@ -19,10 +20,10 @@ fn get_and_print(db: &Database, key: &str) {
 
     match value {
         None => {
-            println!("No value retrieved")
+            println!("{key} => No value retrieved")
         }
         Some(x) => {
-            println!("Value retrieved: {:?}", x);
+            println!("{key} => {:?}", x);
         }
     }
 }

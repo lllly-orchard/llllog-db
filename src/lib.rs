@@ -1,9 +1,9 @@
 pub mod kv_db {
     use std::{
-        fs::{self, OpenOptions},
-        io::Write,
-        path::Path,
+        fs::{self, OpenOptions}, io::{Seek, SeekFrom, Write}, os::unix::fs::FileExt, panic, path::Path
     };
+
+    use crate::index;
 
     // todo: implement and pass in an underlying storage engine
     // try to follow open-closed principle via strategy pattern
@@ -13,11 +13,37 @@ pub mod kv_db {
 
     pub struct Database {
         path: &'static Path,
+        index: index::SingleFileIndex,
     }
 
     impl Database {
-        pub fn new(path: &'static Path) -> Database {
-            Database { path }
+        pub fn build(path: &'static Path) -> Database {
+            let index = index::SingleFileIndex::new();
+
+            let mut db = Database { path, index };
+            db.init();
+
+            db
+        }
+
+
+        fn init(&mut self) {
+            println!("Initializing database index.");
+            let contents = fs::read_to_string(&self.path).unwrap_or_else(|_| String::new());
+
+            for line in contents.lines() {
+                let (k, _) = match get_csv_row(line) {
+                    Some((k, v)) => {
+                        (k, v)
+                    }
+                    _ => {
+                        panic!("Unable to parse data file.");
+                    }
+                };
+
+                let size = line.len() + 1; // the +1 is for the newline, which .lines() drops
+                self.index.set(k, size);
+            }
         }
 
         /// Write a key and value into the database
@@ -28,39 +54,32 @@ pub mod kv_db {
         ///
         /// Panics if key provided is the empty string.
         /// Will panic if it can't find or create the expected file at the given path.
-        pub fn set(&self, key: &str, value: &str) {
+        pub fn set(&mut self, key: &str, value: &str) {
             assert_ne!(key, "");
-            append_to_file(&self.path, &format!("{key},{value}\n")).unwrap();
+            let size = append_to_file(&self.path, &format!("{key},{value}\n")).unwrap();
+
+            self.index.set(key, size);
         }
 
         /// Given a key, returns an option with the value if present
         ///
         /// Note: currently reads the full file in as a string and iterates over lines
         pub fn get(&self, key: String) -> Option<String> {
-            if key == "" {
-                return None;
+            let val_option = self.index.get(&key);
+            if let Some((offset, size)) = val_option {
+                let mut f = OpenOptions::new().read(true).open(self.path).unwrap();
+                let mut buf: Vec<u8> = vec![0; *size];
+
+                let offset: u64 = <usize as TryInto<u64>>::try_into(*offset).unwrap();
+                f.seek(SeekFrom::Start(offset)).unwrap();
+                
+                f.read_exact_at(buf.as_mut_slice(), offset).unwrap();
+
+                let content = String::from_utf8(buf).unwrap();
+
+                Some(content)
             }
-
-            let contents = fs::read_to_string(&self.path).unwrap_or_else(|_| String::new());
-
-            let mut val: Option<&str> = None;
-            for line in contents.lines() {
-                match get_csv_row(line) {
-                    Some((k, v)) if k == key => {
-                        val = Some(v);
-                    }
-                    Some((_, v)) => {
-                        val = Some(v);
-                    }
-                    None => {
-                        continue;
-                    }
-                }
-            }
-
-            if let Some(x) = val {
-                Some(String::from(x))
-            } else {
+            else {
                 None
             }
         }
@@ -84,7 +103,6 @@ pub mod kv_db {
     fn get_csv_row(line: &str) -> Option<(&str, &str)> {
         let mut iter = line.split(",");
         let k = iter.next();
-
         let v = iter.next();
 
         match (k, v) {
@@ -100,3 +118,39 @@ pub mod kv_db {
         }
     }
 }
+
+mod index {
+    use std::collections::HashMap;
+
+    pub struct SingleFileIndex {
+        file_bytes: usize,
+        map: HashMap<String, (usize, usize)>,
+    }
+
+    impl SingleFileIndex {
+        pub fn new() -> SingleFileIndex {
+            SingleFileIndex {
+                file_bytes: 0,
+                map: HashMap::new(),
+            }
+        }
+
+        pub fn set(&mut self, key: &str, entry_size: usize) -> usize {
+            let key_bytes = format!("{key},").len();
+            let value_bytes = entry_size - key_bytes - 1;
+
+            self.map.insert(String::from(key), (self.file_bytes + key_bytes, value_bytes));
+
+            self.file_bytes += entry_size;
+
+            self.file_bytes
+        }
+
+        pub fn get(&self, key: &str) -> Option<&(usize, usize)> {
+            self.map.get(key)
+        }
+    }
+}
+
+
+
