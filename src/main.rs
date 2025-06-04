@@ -3,10 +3,9 @@ use std::path::Path;
 
 fn main() {
     let mut my_db = Database::build(Path::new("db_file.csv"));
-    // let my_db = Database::build(Path::new("db_file.csv"));
 
     my_db.set("key1", "val1.4");
-    // my_db.set("key2", "val2.3");
+    my_db.set("key2", "val2.3");
     my_db.set("key3", "val3.0");
 
     get_and_print(&my_db, "key1");
