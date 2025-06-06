@@ -2,7 +2,10 @@ mod index;
 
 pub mod kv_db {
     use std::{
-        fs::{self, OpenOptions}, io::Write, os::unix::fs::FileExt, panic, path::Path
+        fs::{OpenOptions},
+        io::Write,
+        os::unix::fs::FileExt,
+        path::Path,
     };
     use crate::index;
 
@@ -30,21 +33,7 @@ pub mod kv_db {
 
         fn init(&mut self) {
             println!("Initializing index.");
-            let contents = fs::read_to_string(&self.path).unwrap_or_else(|_| String::new());
-
-            for line in contents.lines() {
-                let (k, _) = match parse_csv_row(line) {
-                    Some((k, v)) => {
-                        (k, v)
-                    }
-                    _ => {
-                        panic!("Unable to parse data file.");
-                    }
-                };
-
-                let size = line.len() + 1; // the +1 is for the newline, which .lines() drops
-                self.index.set(k, size);
-            }
+            self.index.init(&self.path);
         }
 
         /// Write a key and value into the database
@@ -98,24 +87,6 @@ pub mod kv_db {
             .unwrap();
 
         file.write(contents.as_bytes())
-    }
-
-    fn parse_csv_row(line: &str) -> Option<(&str, &str)> {
-        let mut iter = line.split(",");
-        let k = iter.next();
-        let v = iter.next();
-
-        match (k, v) {
-            (None, _) => {
-                return None;
-            }
-            (Some(_), None) => {
-                return None;
-            }
-            (Some(x), Some(y)) => {
-                return Some((x, y));
-            }
-        }
     }
 }
 

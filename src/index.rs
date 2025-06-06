@@ -1,4 +1,8 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    fs,
+    path::Path,
+};
 
 pub struct SingleFileIndex {
     file_bytes: usize,
@@ -26,6 +30,43 @@ impl SingleFileIndex {
 
     pub fn get(&self, key: &str) -> Option<&(usize, usize)> {
         self.map.get(key)
+    }
+
+    pub fn init(&mut self, path: &Path) {
+        let contents = fs::read_to_string(path).unwrap_or_else(|_| String::new());
+
+        for line in contents.lines() {
+            let (k, _) = match SingleFileIndex::parse_csv_row(line) {
+                Some((k, v)) => {
+                    (k, v)
+                }
+                _ => {
+                    panic!("Unable to parse data file.");
+                }
+            };
+
+            let size = line.len() + 1; // the +1 is for the newline, which .lines() drops
+            self.set(k, size);
+        }
+    }
+
+    /// Splits a &str on "," and returns the values as a (x, y) tuple option,
+    /// or None if two values are not found for the line
+    ///
+    /// # TODO
+    ///
+    /// 1. Respect escapes ("\,")
+    /// 2. Allow different characters to split on
+    fn parse_csv_row(line: &str) -> Option<(&str, &str)> {
+        let mut iter = line.split(",");
+        let k = iter.next();
+        let v = iter.next();
+
+        match (k, v) {
+            (None, _) => None,
+            (Some(_), None) => None,
+            (Some(x), Some(y)) => Some((x, y)),
+        }
     }
 }
 
