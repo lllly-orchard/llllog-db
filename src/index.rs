@@ -1,4 +1,8 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    fs,
+    path::Path,
+};
 
 pub struct SingleFileIndex {
     file_bytes: usize,
@@ -26,6 +30,48 @@ impl SingleFileIndex {
 
     pub fn get(&self, key: &str) -> Option<&(usize, usize)> {
         self.map.get(key)
+    }
+
+    /// Initializes the index from a provided file
+    ///
+    /// # TODO
+    ///
+    /// 1. Read file one line at a time rather than the whole file as a string
+    pub fn init(&mut self, path: &Path) {
+        let contents = fs::read_to_string(path).unwrap_or_else(|_| String::new());
+
+        for line in contents.lines() {
+            let (k, _) = match SingleFileIndex::parse_csv_row(line) {
+                Some((k, v)) => {
+                    (k, v)
+                }
+                _ => {
+                    panic!("Unable to parse data file.");
+                }
+            };
+
+            let size = line.len() + 1; // the +1 is for the newline, which .lines() drops
+            self.set(k, size);
+        }
+    }
+
+    /// Splits a &str on "," and returns the values as a (x, y) tuple option,
+    /// or None if two values are not found for the line
+    ///
+    /// # TODO
+    ///
+    /// 1. Respect escapes ("\,")
+    /// 2. Allow different characters to split on
+    fn parse_csv_row(line: &str) -> Option<(&str, &str)> {
+        let mut iter = line.split(",");
+        let k = iter.next();
+        let v = iter.next();
+
+        match (k, v) {
+            (None, _) => None,
+            (Some(_), None) => None,
+            (Some(x), Some(y)) => Some((x, y)),
+        }
     }
 }
 
@@ -84,4 +130,20 @@ mod tests {
         assert_eq!(*result, (file_size_after_k1 + key_len + comma_len, k2_size - key_len - comma_len - newline_len));
     }
 }
+
+// /// An index spanning multiple files.
+// ///
+// /// Under the hood, this index maintains an ordered list of single file indexes,
+// /// sorted with the most recent file first.
+// ///
+// /// A `get` call will call `get` on each index in this list in turn and return the
+// /// first found result (path, offset, length) or None if no index contains the key
+// ///
+// /// A `set` call will append the k-v pair to the newest file if it is below capacity,
+// /// or a new file with a new index if it is not
+// struct MultiFileIndex {
+//     file_indexes: Vec<SingleFileIndex>,
+// }
+
+
 
