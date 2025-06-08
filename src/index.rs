@@ -32,6 +32,11 @@ impl SingleFileIndex {
         self.map.get(key)
     }
 
+    /// Initializes the index from a provided file
+    ///
+    /// # TODO
+    ///
+    /// 1. Read file one line at a time rather than the whole file as a string
     pub fn init(&mut self, path: &Path) {
         let contents = fs::read_to_string(path).unwrap_or_else(|_| String::new());
 
@@ -125,4 +130,20 @@ mod tests {
         assert_eq!(*result, (file_size_after_k1 + key_len + comma_len, k2_size - key_len - comma_len - newline_len));
     }
 }
+
+// /// An index spanning multiple files.
+// ///
+// /// Under the hood, this index maintains an ordered list of single file indexes,
+// /// sorted with the most recent file first.
+// ///
+// /// A `get` call will call `get` on each index in this list in turn and return the
+// /// first found result (path, offset, length) or None if no index contains the key
+// ///
+// /// A `set` call will append the k-v pair to the newest file if it is below capacity,
+// /// or a new file with a new index if it is not
+// struct MultiFileIndex {
+//     file_indexes: Vec<SingleFileIndex>,
+// }
+
+
 
