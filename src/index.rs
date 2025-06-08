@@ -141,11 +141,14 @@ mod tests {
 ///
 /// A `set` call will append the k-v pair to the newest file if it is below capacity,
 /// or a new file with a new index if it is not
+#[allow(dead_code)]
 struct MultiFileIndex {
     file_indexes: Vec<SingleFileIndex>,
 
 }
 
+
+#[allow(dead_code)]
 impl MultiFileIndex {
     /// Adds an index for a file to self.file_indexes
     ///
@@ -180,7 +183,9 @@ impl MultiFileIndex {
     // Adds the key and its size to the appropriate index based on file path
     //
     // TODO: implement it, making sure to locate the correct index
-    pub fn set(&mut self, key: &str, size: usize, file_path: &Path) { }
+    pub fn set(&mut self, key: &str, size: usize, file_path: &Path) {
+        dbg!(key, size, file_path);
+    }
 }
 
 
