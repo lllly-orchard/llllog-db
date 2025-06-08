@@ -131,19 +131,61 @@ mod tests {
     }
 }
 
-// /// An index spanning multiple files.
-// ///
-// /// Under the hood, this index maintains an ordered list of single file indexes,
-// /// sorted with the most recent file first.
-// ///
-// /// A `get` call will call `get` on each index in this list in turn and return the
-// /// first found result (path, offset, length) or None if no index contains the key
-// ///
-// /// A `set` call will append the k-v pair to the newest file if it is below capacity,
-// /// or a new file with a new index if it is not
-// struct MultiFileIndex {
-//     file_indexes: Vec<SingleFileIndex>,
-// }
+/// An index spanning multiple files.
+///
+/// Under the hood, this index maintains an ordered list of single file indexes,
+/// sorted with the most recent file first.
+///
+/// A `get` call will call `get` on each index in this list in turn and return the
+/// first found result (path, offset, length) or None if no index contains the key
+///
+/// A `set` call will append the k-v pair to the newest file if it is below capacity,
+/// or a new file with a new index if it is not
+#[allow(dead_code)]
+struct MultiFileIndex {
+    file_indexes: Vec<SingleFileIndex>,
 
+}
+
+
+#[allow(dead_code)]
+impl MultiFileIndex {
+    /// Adds an index for a file to self.file_indexes
+    ///
+    /// TODO: place index in correct position relative to others, potentially by filename
+    /// convention
+    pub fn add_file(&mut self, file_path: &Path) {
+        let mut new_index = SingleFileIndex::new();
+        new_index.init(file_path);
+
+        // TODO: place in appropriate spot in collection
+        self.file_indexes.push(new_index);
+    }
+    
+    /// Looks through each index in sorted order and returns Some(x)
+    /// if the key is found, or None if it is not found in any index
+    ///
+    /// TODO: Update to return the file name/path/etc to the caller
+    /// along with (offset, size) to allow the caller to locate the value
+    pub fn get(&self, key: &str) -> Option<&(usize, usize)> {
+        for index in self.file_indexes.iter() {
+            match index.get(key) {
+                Some(str) => {
+                    return Some(str);
+                },
+                None => {},
+            }
+        }
+
+        None
+    }
+
+    // Adds the key and its size to the appropriate index based on file path
+    //
+    // TODO: implement it, making sure to locate the correct index
+    pub fn set(&mut self, key: &str, size: usize, file_path: &Path) {
+        dbg!(key, size, file_path);
+    }
+}
 
 
