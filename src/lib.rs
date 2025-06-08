@@ -2,10 +2,9 @@ mod index;
 
 pub mod kv_db {
     use std::{
-        fs::{OpenOptions, File},
-        io::Write,
-        os::unix::fs::FileExt,
-        path::Path,
+        fs::OpenOptions,
+        io::{Read, Seek, SeekFrom, Write},
+        path::Path, string::FromUtf8Error,
     };
     use crate::index;
 
@@ -61,10 +60,10 @@ pub mod kv_db {
         pub fn get(&self, key: String) -> Option<String> {
             let val_option = self.index.get(&key);
             if let Some((offset, size)) = val_option {
-                let f = OpenOptions::new().read(true).open(self.path).unwrap();
+                let mut f = OpenOptions::new().read(true).open(self.path).unwrap();
 
                 let offset: u64 = TryInto::try_into(*offset).unwrap();
-                let content = read_exact_str_at(&f, offset, *size).unwrap();
+                let content = read_exact_str_at(&mut f, offset, *size).unwrap();
 
                 Some(content)
             }
@@ -89,16 +88,44 @@ pub mod kv_db {
         file.write(contents.as_bytes())
     }
 
-    /// Reads exactly `size` bytes from `file` with `offset` bytes offset from start
+    /// Reads exactly `size` bytes from `stream` with `offset` bytes offset from start
     ///
     /// # Panics
     ///
-    /// This will panic any time the underlying `read_exact_at` call would return an error
-    fn read_exact_str_at(file: &File, offset: u64, size: usize) -> Result<String, std::string::FromUtf8Error> {
-                let mut buf: Vec<u8> = vec![0; size];
-                file.read_exact_at(buf.as_mut_slice(), offset).unwrap();
+    /// This will panic any time the underlying `seek` or `read` calls return an error
+    fn read_exact_str_at<R: Read + Seek>(stream: &mut R, offset: u64, size: usize) -> Result<String, FromUtf8Error> {
+        let mut buf: Vec<u8> = vec![0; size];
+        stream.seek(SeekFrom::Start(offset)).unwrap();
+        stream.read(&mut buf).unwrap();
+        String::from_utf8(buf)
+    }
 
-                String::from_utf8(buf)
+
+    #[cfg(test)]
+    mod test {
+        use std::io::Write;
+
+        use crate::kv_db::read_exact_str_at;
+
+        #[test]
+        fn read_exact_str_at_reads_the_expected_content() {
+            use std::io::Cursor;
+            let mut buff = Cursor::new(vec![0; 15]);
+
+            for i in 0..15 {
+                buff.write(std::format!("{i}").as_bytes()).unwrap();
+            }
+
+
+            // From beginning
+            assert_eq!(read_exact_str_at(&mut buff, 0, 5).unwrap(), "01234");
+
+            // From middle
+            assert_eq!(read_exact_str_at(&mut buff, 5, 5).unwrap(), "56789");
+
+            // Up to end and slightly beyond
+            assert_eq!(read_exact_str_at(&mut buff, 10, 12).unwrap(), "1011121314\0\0");
+        }
     }
 }
 
