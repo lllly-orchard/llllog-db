@@ -144,16 +144,36 @@ mod tests {
 #[allow(dead_code)]
 struct MultiFileIndex {
     file_indexes: Vec<SingleFileIndex>,
-
 }
 
 
 #[allow(dead_code)]
 impl MultiFileIndex {
+    pub fn new() -> Self {
+        MultiFileIndex {
+            file_indexes: Vec::new()
+        }
+    }
+
+    /// Initializes the index using the specified config file to determine datafile load order
+    ///
+    /// # TODO
+    ///
+    /// Get datafile load order from config file
+    ///
+    /// Load each datafile into its own SingleFileIndex
+    pub fn init(&mut self, _: &Path) {
+        unimplemented!();
+    }
+
     /// Adds an index for a file to self.file_indexes
     ///
-    /// TODO: place index in correct position relative to others, potentially by filename
+    /// # TODO
+    ///
+    /// Place index in correct position relative to others, potentially by filename
     /// convention
+    ///
+    /// Write updated file order into config file
     pub fn add_file(&mut self, file_path: &Path) {
         let mut new_index = SingleFileIndex::new();
         new_index.init(file_path);
@@ -165,7 +185,9 @@ impl MultiFileIndex {
     /// Looks through each index in sorted order and returns Some(x)
     /// if the key is found, or None if it is not found in any index
     ///
-    /// TODO: Update to return the file name/path/etc to the caller
+    /// # TODO
+    ///
+    /// Update to return the file name/path/etc to the caller
     /// along with (offset, size) to allow the caller to locate the value
     pub fn get(&self, key: &str) -> Option<&(usize, usize)> {
         for index in self.file_indexes.iter() {
