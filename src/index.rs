@@ -162,7 +162,7 @@ impl MultiFileIndex {
     /// Get datafile load order from config file
     ///
     /// Load each datafile into its own SingleFileIndex
-    pub fn init(&mut self, config_filepath: &Path) {
+    pub fn init(&mut self, _: &Path) {
         unimplemented!();
     }
 
