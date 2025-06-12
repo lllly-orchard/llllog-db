@@ -14,21 +14,31 @@ pub struct ValueLocation {
 pub struct SingleFileIndex {
     file_bytes: u64,
     map: HashMap<String, ValueLocation>,
+    kv_seperator: char,
+    kv_seperator_len: usize,
+    entry_seperator_len: usize,
 }
 
 impl SingleFileIndex {
     pub fn new() -> SingleFileIndex {
+        let kv_seperator = ',';
+        let entry_seperator = '\n';
+        let kv_seperator_len = kv_seperator.len_utf8();
+        let entry_seperator_len = entry_seperator.len_utf8();
         SingleFileIndex {
             file_bytes: 0,
             map: HashMap::new(),
+            kv_seperator,
+            kv_seperator_len,
+            entry_seperator_len,
         }
     }
 
     pub fn set(&mut self, key: &str, entry_size: u64) -> u64 {
-        let key_bytes = format!("{key},").len();
-        let key_bytes: u64 = TryInto::try_into(key_bytes).unwrap();
+        let key_bytes = format!("{key}").len();
+        let key_bytes: u64 = TryInto::<u64>::try_into(key_bytes + self.kv_seperator_len).unwrap();
 
-        let value_bytes = entry_size - key_bytes - 1;
+        let value_bytes = entry_size - key_bytes - TryInto::<u64>::try_into(self.entry_seperator_len).unwrap();
 
         let value_location = ValueLocation {
             offset: self.file_bytes + key_bytes,
@@ -54,8 +64,9 @@ impl SingleFileIndex {
     pub fn init(&mut self, path: &Path) {
         let contents = fs::read_to_string(path).unwrap_or_else(|_| String::new());
 
+        let entry_seperator_bytes = self.entry_seperator_len;
         for line in contents.lines() {
-            let (k, _) = match SingleFileIndex::parse_csv_row(line) {
+            let (k, _) = match self.parse_csv_row(line) {
                 Some((k, v)) => {
                     (k, v)
                 }
@@ -64,7 +75,7 @@ impl SingleFileIndex {
                 }
             };
 
-            let size: u64 = TryInto::try_into(line.len() + 1).unwrap(); // the +1 is for the newline, which .lines() drops
+            let size: u64 = TryInto::try_into(line.len() + entry_seperator_bytes).unwrap(); // the +1 is for the newline, which .lines() drops
             self.set(k, size);
         }
     }
@@ -76,8 +87,8 @@ impl SingleFileIndex {
     ///
     /// 1. Respect escapes ("\,")
     /// 2. Allow different characters to split on
-    fn parse_csv_row(line: &str) -> Option<(&str, &str)> {
-        let mut iter = line.split(",");
+    fn parse_csv_row<'a>(&self, line: &'a str) -> Option<(&'a str, &'a str)> {
+        let mut iter = line.split(self.kv_seperator);
         let k = iter.next();
         let v = iter.next();
 
@@ -187,8 +198,7 @@ impl MultiFileIndex {
     ///
     /// Load each datafile into its own SingleFileIndex
     pub fn init(&mut self, _: &Path) {
-        unimplemented!();
-    }
+        unimplemented!(); }
 
     /// Adds an index for a file to self.file_indexes
     ///

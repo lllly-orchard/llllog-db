@@ -8,12 +8,16 @@ pub mod kv_db {
     };
     use crate::index;
 
-    // todo: implement and pass in an underlying storage engine
-    // try to follow open-closed principle via strategy pattern
-    //
-    // start with a simple csv log with full-file scans for every query
-    // build up to indexes, binary file storage, log compaction, etc
-
+    /// Log-Structured Key-Value Database
+    ///
+    /// # Warnings
+    ///
+    /// Will not initialize properly if the key or value contain newline characters
+    /// Will not initialize properly if the key contains a comma character
+    ///
+    /// # TODO
+    ///
+    /// Escape commas and newlines in keys and values and respect those escapes
     pub struct Database {
         path: &'static Path,
         index: index::SingleFileIndex,
