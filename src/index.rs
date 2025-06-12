@@ -4,9 +4,16 @@ use std::{
     path::Path,
 };
 
+#[derive(Debug)]
+#[derive(PartialEq)]
+pub struct ValueLocation {
+    pub offset: u64,
+    pub size: u64,
+}
+
 pub struct SingleFileIndex {
-    file_bytes: usize,
-    map: HashMap<String, (usize, usize)>,
+    file_bytes: u64,
+    map: HashMap<String, ValueLocation>,
 }
 
 impl SingleFileIndex {
@@ -17,18 +24,25 @@ impl SingleFileIndex {
         }
     }
 
-    pub fn set(&mut self, key: &str, entry_size: usize) -> usize {
+    pub fn set(&mut self, key: &str, entry_size: u64) -> u64 {
         let key_bytes = format!("{key},").len();
+        let key_bytes: u64 = TryInto::try_into(key_bytes).unwrap();
+
         let value_bytes = entry_size - key_bytes - 1;
 
-        self.map.insert(String::from(key), (self.file_bytes + key_bytes, value_bytes));
+        let value_location = ValueLocation {
+            offset: self.file_bytes + key_bytes,
+            size: value_bytes,
+        };
+
+        self.map.insert(String::from(key), value_location);
 
         self.file_bytes += entry_size;
 
         self.file_bytes
     }
 
-    pub fn get(&self, key: &str) -> Option<&(usize, usize)> {
+    pub fn get(&self, key: &str) -> Option<&ValueLocation> {
         self.map.get(key)
     }
 
@@ -50,7 +64,7 @@ impl SingleFileIndex {
                 }
             };
 
-            let size = line.len() + 1; // the +1 is for the newline, which .lines() drops
+            let size: u64 = TryInto::try_into(line.len() + 1).unwrap(); // the +1 is for the newline, which .lines() drops
             self.set(k, size);
         }
     }
@@ -110,15 +124,20 @@ mod tests {
         let k1_size = 11;
         let k1_key = "key1";
 
-        let file_size_new = 0;
+        let file_size_new: u64 = 0;
         let file_size_after_k1 = index.set(k1_key, k1_size);
 
         let result = index.get(k1_key).unwrap();
 
-        let comma_len = ",".len();
-        let newline_len = "\n".len();
-        let key_len = k1_key.len();
-        assert_eq!(*result, (file_size_new + key_len + comma_len, k1_size - key_len - comma_len - newline_len));
+        let comma_len: u64 = TryInto::try_into(",".len()).unwrap();
+        let newline_len: u64 = TryInto::try_into("\n".len()).unwrap();
+        let key_len: u64 = TryInto::try_into(k1_key.len()).unwrap();
+        let expected_val = ValueLocation {
+            offset: file_size_new + key_len + comma_len,
+            size: k1_size - key_len - comma_len - newline_len,
+        };
+        assert_eq!(result.offset, expected_val.offset);
+        assert_eq!(result.size, expected_val.size);
 
         let k2_size = 12;
         let k2_key = "key2";
@@ -126,8 +145,13 @@ mod tests {
 
         let result = index.get(k2_key).unwrap();
 
-        let key_len = k2_key.len();
-        assert_eq!(*result, (file_size_after_k1 + key_len + comma_len, k2_size - key_len - comma_len - newline_len));
+        let key_len: u64 = TryInto::try_into(k2_key.len()).unwrap();
+        let expected_val = ValueLocation {
+            offset: file_size_after_k1 + key_len + comma_len,
+            size: k2_size - key_len - comma_len - newline_len,
+        };
+        assert_eq!(result.offset, expected_val.offset);
+        assert_eq!(result.size, expected_val.size);
     }
 }
 
@@ -189,7 +213,7 @@ impl MultiFileIndex {
     ///
     /// Update to return the file name/path/etc to the caller
     /// along with (offset, size) to allow the caller to locate the value
-    pub fn get(&self, key: &str) -> Option<&(usize, usize)> {
+    pub fn get(&self, key: &str) -> Option<&ValueLocation> {
         for index in self.file_indexes.iter() {
             match index.get(key) {
                 Some(str) => {

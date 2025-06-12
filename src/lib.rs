@@ -46,7 +46,7 @@ pub mod kv_db {
             assert_ne!(key, "");
             let size = append_to_file(&self.path, &format!("{key},{value}\n")).unwrap();
 
-            self.index.set(key, size);
+            self.index.set(key, TryInto::try_into(size).unwrap());
         }
 
         /// Given a key, returns an option with the value if present
@@ -59,7 +59,7 @@ pub mod kv_db {
         /// and reading the length of the content is O(n), where n is content size
         pub fn get(&self, key: String) -> Option<String> {
             let val_option = self.index.get(&key);
-            if let Some((offset, size)) = val_option {
+            if let Some(index::ValueLocation {offset, size}) = val_option {
                 let mut f = OpenOptions::new().read(true).open(self.path).unwrap();
 
                 let offset: u64 = TryInto::try_into(*offset).unwrap();
@@ -93,8 +93,8 @@ pub mod kv_db {
     /// # Panics
     ///
     /// This will panic any time the underlying `seek` or `read` calls return an error
-    fn read_exact_str_at<R: Read + Seek>(stream: &mut R, offset: u64, size: usize) -> Result<String, FromUtf8Error> {
-        let mut buf: Vec<u8> = vec![0; size];
+    fn read_exact_str_at<R: Read + Seek>(stream: &mut R, offset: u64, size: u64) -> Result<String, FromUtf8Error> {
+        let mut buf: Vec<u8> = vec![0; TryInto::try_into(size).unwrap()];
         stream.seek(SeekFrom::Start(offset)).unwrap();
         stream.read(&mut buf).unwrap();
         String::from_utf8(buf)
